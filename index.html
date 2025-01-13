@@ -1,0 +1,247 @@
+<html><head><base href="." /><title>Decent Sampler Instrument Analyser</title><style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #1e1e1e;
+      color: #ffffff;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #ff8c00;
+      margin-bottom: 30px;
+      font-size: 2.5em;
+      text-shadow: 0 0 10px rgba(255, 140, 0, 0.3);
+    }
+
+    .xml-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .xml-box {
+      background-color: #2d2d2d;
+      border-radius: 8px;
+      padding: 20px;
+      position: relative;
+    }
+
+    .xml-box h2 {
+      color: #ff8c00;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 400px;
+      background-color: #363636;
+      color: #ffffff;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'Consolas', monospace;
+      resize: vertical;
+    }
+
+    button {
+      background-color: #ff8c00;
+      color: #1e1e1e;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-block;
+      margin: 0 10px;
+    }
+
+    .button-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      background-color: #e67e00;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(255, 140, 0, 0.2);
+    }
+
+    .info-text {
+      text-align: center;
+      color: #888;
+      margin-top: 20px;
+    }
+</style></head>
+<body>
+  <div class="container">
+    <h1>Decent Sampler Instrument Analyser</h1>
+    
+    <div class="xml-container">
+      <div class="xml-box">
+        <h2>Input XML</h2>
+        <textarea id="inputXml" placeholder="Paste your Decent Sampler XML here..."></textarea>
+      </div>
+      <div class="xml-box">
+        <h2>Output XML</h2>
+        <textarea id="outputXml" readonly placeholder="Processed XML will appear here..."></textarea>
+      </div>
+    </div>
+
+    <div class="button-container">
+      <button onclick="processXML()">Process XML</button>
+      <button onclick="copyOutput()">Copy Output</button>
+    </div>
+    
+    <p class="info-text">This tool processes Decent Sampler XML files by removing sample tags and adding comments.</p>
+  </div>
+
+  <script>
+  function processXML() {
+    const inputXml = document.getElementById('inputXml').value;
+    const outputTextarea = document.getElementById('outputXml');
+    
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(inputXml, "text/xml");
+
+      // Add UI image and size information
+      const uiElements = xmlDoc.getElementsByTagName('ui');
+      for (let ui of uiElements) {
+        const width = ui.getAttribute('width');
+        const height = ui.getAttribute('height');
+        const bgImage = ui.getAttribute('bgImage');
+        
+        if (width && height) {
+          const sizeComment = xmlDoc.createComment(` IMAGE SIZE: ${width} x ${height} `);
+          ui.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), ui);
+          ui.parentNode.insertBefore(sizeComment, ui);
+        }
+        
+        if (bgImage) {
+          const imageNameComment = xmlDoc.createComment(` IMAGE NAME: ${bgImage.split('/').pop()} `);
+          ui.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), ui);
+          ui.parentNode.insertBefore(imageNameComment, ui);
+          ui.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), ui);
+        }
+      }
+
+      // Add main section titles in UPPER CASE
+      const mainTitles = {
+        "groups": "GROUPS AND SEQUENCES",
+        "effects": "EFFECTS",
+        "tags": "TAGS",
+        "midi": "MIDI BINDINGS", 
+        "noteSequences": "NOTE SEQUENCES",
+        "modulators": "MODULATORS",
+        "buses": "BUSES"
+      };
+
+      for (let [tag, title] of Object.entries(mainTitles)) {
+        const elements = xmlDoc.getElementsByTagName(tag);
+        if (elements.length > 0) {
+          const comment = xmlDoc.createComment(` ${title} `);
+          elements[0].parentNode.insertBefore(comment, elements[0]);
+          elements[0].parentNode.insertBefore(xmlDoc.createTextNode('\n        '), elements[0]);
+        }
+      }
+
+      // Process bindings and add parameter comments in UPPER CASE
+      const bindings = xmlDoc.getElementsByTagName('binding');
+      for (let binding of bindings) {
+        const paramValue = binding.getAttribute('parameter');
+        if (paramValue) {
+          let control = binding.parentElement;
+          if (control && control.tagName === 'control') {
+            const comment = xmlDoc.createComment(` ${paramValue.toUpperCase()} `);
+            control.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), control);
+            control.parentNode.insertBefore(comment, control);
+            control.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), control);
+          }
+        }
+      }
+
+      // Process label elements and add text attribute comments in UPPER CASE
+      const labels = xmlDoc.getElementsByTagName('label');
+      for (let label of labels) {
+        const text = label.getAttribute('text');
+        if (text) {
+          const comment = xmlDoc.createComment(` ${text.toUpperCase()} `);
+          label.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), label);
+          label.parentNode.insertBefore(comment, label);
+          label.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), label);
+        }
+      }
+
+      // Process keyboard elements with UPPER CASE title
+      const keyboards = xmlDoc.getElementsByTagName('keyboard');
+      for (let keyboard of keyboards) {
+        const comment = xmlDoc.createComment(' KEYBOARD COLOUR MAPPING ');
+        keyboard.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), keyboard);
+        keyboard.parentNode.insertBefore(comment, keyboard);
+        keyboard.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), keyboard);
+      }
+
+      // Process groups and remove samples
+      const groups = xmlDoc.getElementsByTagName("group");
+      for (let group of groups) {
+        const samples = group.getElementsByTagName("sample");
+        while (samples.length > 0) {
+          samples[0].remove();
+        }
+        
+        const comment = xmlDoc.createComment(' AUDIO FILES ');
+        const textBefore = xmlDoc.createTextNode('\n        ');
+        const textAfter = xmlDoc.createTextNode('\n\n        ');
+        
+        const effects = group.getElementsByTagName("effects")[0];
+        if (effects) {
+          group.insertBefore(textBefore, effects);
+          group.insertBefore(comment, effects);
+          group.insertBefore(textAfter, effects);
+        }
+      }
+
+      // Convert back to string and clean up
+      const serializer = new XMLSerializer();
+      let result = serializer.serializeToString(xmlDoc)
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+
+      // Clean up formatting
+      result = result.replace(/\n\s*\n\s*\n/g, '\n\n');
+      result = result.replace(/>\n\s+<!--/g, '>\n\n        <!--');
+      result = result.replace(/-->\n\s+</g, '-->\n\n        <');
+      
+      outputTextarea.value = result;
+    } catch (error) {
+      outputTextarea.value = "Error processing XML: " + error.message;
+    }
+  }
+
+  function copyOutput() {
+    const outputText = document.getElementById('outputXml');
+    outputText.select();
+    document.execCommand('copy');
+    
+    const copyButton = document.querySelector('button:nth-child(2)');
+    const originalText = copyButton.textContent;
+    copyButton.textContent = 'Copied!';
+    setTimeout(() => {
+      copyButton.textContent = originalText;
+    }, 2000);
+  }
+  </script>
+</body>
+</html>
