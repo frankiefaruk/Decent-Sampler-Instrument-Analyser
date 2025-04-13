@@ -158,12 +158,21 @@
 
       // Process bindings and add parameter comments in UPPER CASE
       const bindings = xmlDoc.getElementsByTagName('binding');
+      const bindingTitles = {
+        "FX_FILTER_FREQUENCY": "FILTER",
+        "FX_REVERB_WET_LEVEL": "REVERB",
+        "FX_MIX": "FX MIX"
+      };
       for (let binding of bindings) {
         const paramValue = binding.getAttribute('parameter');
         if (paramValue) {
           let control = binding.parentElement;
-          if (control && control.tagName === 'control') {
-            const comment = xmlDoc.createComment(` ${paramValue.toUpperCase()} `);
+          if (control && (control.tagName === 'control' || control.tagName === 'labeled-knob')) {
+            let commentText = paramValue.toUpperCase();
+            if (bindingTitles[paramValue]) {
+              commentText = bindingTitles[paramValue];
+            }
+            const comment = xmlDoc.createComment(` ${commentText} `);
             control.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), control);
             control.parentNode.insertBefore(comment, control);
             control.parentNode.insertBefore(xmlDoc.createTextNode('\n        '), control);
@@ -215,8 +224,8 @@
       // Convert back to string and clean up
       const serializer = new XMLSerializer();
       let result = serializer.serializeToString(xmlDoc)
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
         .replace(/&amp;/g, '&');
 
       // Clean up formatting
